@@ -1,13 +1,12 @@
-package main
+package skipgraph
 
 import (
 	"bytes"
 	"fmt"
-	"math"
-	"math/rand"
 	"sort"
 )
 
+// DefaultMaxlevel is the maximum level of each node
 const (
 	DefaultMaxLevel = 32
 	nodeNum         = 10000
@@ -15,27 +14,17 @@ const (
 	right           = 1
 	iter1           = 5
 	iter2           = 100
-	targetRange     = 10
+	iterD1          = 10
+	iterD2          = 100
+	targetRange     = 100
 )
 
-type Node struct {
-	key       int
-	mv        []byte
-	maxLevel  int
-	neighbors [][]*Node
-}
-
-func initNode() *Node {
-	return &Node{
-		key:       getKey(),
-		mv:        getMV(),
-		maxLevel:  getMaxLevel(),
-		neighbors: getDoubleList(),
-	}
-}
-
-func setGraph() []*Node {
+// SetGraph sets Skip Graph from scratch, then return the graph
+// At first, create Nodes and sort them
+// After that, set neighbors for each Nodes at each level
+func SetGraph() []*Node {
 	g := make([]*Node, nodeNum)
+	// rand.Seed(time.Now().UnixNano())
 	for i := range g {
 		g[i] = initNode()
 	}
@@ -75,39 +64,20 @@ func setGraph() []*Node {
 	return g
 }
 
-func getKey() int {
-	maxKey := int(math.Pow(2, 30))
-	// maxKey := 300
-	// rand.Seed(time.Now().UnixNano())
-	return rand.Intn(maxKey)
-}
-
-func getMV() []byte {
-	alphabet := [2]byte{0, 1}
-	b := make([]byte, DefaultMaxLevel)
-	for i := range b {
-		b[i] = alphabet[rand.Intn(len(alphabet))]
-	}
-	return b
-}
-
-func getMaxLevel() int {
-	return DefaultMaxLevel
-}
-
-func getDoubleList() [][]*Node {
-	n := make([][]*Node, 2)
-	for i := 0; i < 2; i++ {
-		n[i] = make([]*Node, DefaultMaxLevel)
-	}
-	return n
-}
-
+// receive a graph and sort the Nodes by key
 func sortNodes(g []*Node) {
 	sort.SliceStable(g, func(i, j int) bool { return g[i].key < g[j].key })
 }
 
-func search(startNode *Node, searchKey, level int, flagRange bool) (v *Node, pathLength int) {
+// Search is the normal search function of Skip Graph, one-way search
+// receive start node, target key, level and flagRange,
+// then return target node and path length from start node to target node
+// search from start node to the node which has the target key from the designated level
+// flagRange=true : if you want to get only target node unless the target key does not exist in the graph
+// -> if it does, return nil and 0
+// flagRange=false: if you want to get the neighborhood unless the target key does not exist in the graph
+// -> return the neighborhood node of the target key
+func Search(startNode *Node, searchKey, level int, flagRange bool) (v *Node, pathLength int) {
 	pathLength = 0
 	v = startNode
 	if v.key < searchKey {
@@ -135,14 +105,18 @@ func search(startNode *Node, searchKey, level int, flagRange bool) (v *Node, pat
 	}
 	if flagRange {
 		return
-	} else {
-		v = nil
-		pathLength = 0
-		return
 	}
+	v = nil
+	pathLength = 0
+	return
 }
 
-func dsgSearch(startNode *Node, searchKey, level int, flagRange bool) (v *Node, pathLength int) {
+// DSGSearch is the search function of Detouring Skip Graph, 2 method below are reflected on normal search
+// 1. search from max level every time when a node receives a query
+// 2. detour if there is shortcut
+// receive start node, target key, level and flagRange,
+// then return target node and path length from start node to target node
+func DSGSearch(startNode *Node, searchKey, level int, flagRange bool) (v *Node, pathLength int) {
 	pathLength = 0
 	v = startNode
 	for level >= 0 {
@@ -194,39 +168,46 @@ func dsgSearch(startNode *Node, searchKey, level int, flagRange bool) (v *Node, 
 	}
 	if flagRange {
 		return
-	} else {
-		v = nil
-		pathLength = 0
-		return
 	}
+	v = nil
+	pathLength = 0
+	return
+
 }
 
+// compare the average of leftKey and rightKey and searchKey
+// if former is bigger, return true
+// otherwise, return false
 func closeToLeft(searchKey, leftKey, rightKey int) bool {
 	mid := (leftKey + rightKey) / 2
 	if mid > searchKey {
 		return true
-	} else {
-		return false
 	}
+	return false
+
 }
 
+// compare the average of leftKey and rightKey and searchKey
+// if former is smaller, return true
+// otherwise, return false
 func closeToRight(searchKey, leftKey, rightKey int) bool {
 	mid := (leftKey + rightKey) / 2
 	if mid < searchKey {
 		return true
-	} else {
-		return false
 	}
+	return false
+
 }
 
-// have to fix the calculation of pathLength
-func rangeSearch(startNode *Node, bottomKey, topKey, level int) (firstNode, lastNode *Node, avePathLength float64) {
+// return the 2 nodes that have bottomKey and topKey respectively, and the average path length from start node to those nodes
+// using Search function
+func searchStartEnd(startNode *Node, bottomKey, topKey, level int) (firstNode, lastNode *Node, avePathLength float64) {
 	if bottomKey > topKey {
 		fmt.Println("Error: bottomKey must be smaller than topKey.")
 		return
 	}
-	firstNode, pathForFirst := search(startNode, bottomKey, level, true)
-	lastNode, pathForLast := search(startNode, topKey, level, true)
+	firstNode, pathForFirst := Search(startNode, bottomKey, level, true)
+	lastNode, pathForLast := Search(startNode, topKey, level, true)
 
 	if bottomKey == topKey {
 		avePathLength = float64(pathForFirst) + float64(pathForLast)
@@ -260,14 +241,15 @@ func rangeSearch(startNode *Node, bottomKey, topKey, level int) (firstNode, last
 	return
 }
 
-// have to fix the calculation of pathLength
-func dsgRangeSearch(startNode *Node, bottomKey, topKey, level int) (firstNode, lastNode *Node, pathLength float64) {
+// return the 2 nodes that have bottomKey and topKey respectively, and the average path length from start node to those nodes
+// using DSGSearch function
+func dsgSearchStartEnd(startNode *Node, bottomKey, topKey, level int) (firstNode, lastNode *Node, pathLength float64) {
 	if bottomKey > topKey {
 		fmt.Println("Error: bottomKey must be smaller than topKey.")
 		return
 	}
-	firstNode, pathForFirst := dsgSearch(startNode, bottomKey, level, true)
-	lastNode, pathForLast := dsgSearch(startNode, topKey, level, true)
+	firstNode, pathForFirst := DSGSearch(startNode, bottomKey, level, true)
+	lastNode, pathForLast := DSGSearch(startNode, topKey, level, true)
 
 	if bottomKey == topKey {
 		pathLength = float64(pathForFirst)
@@ -303,6 +285,8 @@ func dsgRangeSearch(startNode *Node, bottomKey, topKey, level int) (firstNode, l
 	return
 }
 
+// bottomKey <= targetKey <= topKey : true
+// otherwise : false
 func inRange(targetKey, bottomKey, topKey int) bool {
 	if bottomKey <= targetKey && targetKey <= topKey {
 		return true
@@ -310,19 +294,21 @@ func inRange(targetKey, bottomKey, topKey int) bool {
 	return false
 }
 
+// print error message and return nil and 0
 func errorForRange() (_, _ *Node, _ float64) {
 	fmt.Println("Error: Such a node does not exist in the range.")
 	return nil, nil, 0
 }
 
-// sequential from only left node of the range
-func sequential(startNode *Node, bottomKey, topKey, level int) (targetNodes []*Node, avePathLength float64) {
+// Sequential is a sequential range search function from only left end node of the range
+// return the nodes list which contains all nodes of the range and average path length from start node
+func Sequential(startNode *Node, bottomKey, topKey, level int) (targetNodes []*Node, avePathLength float64) {
 	if bottomKey > topKey {
 		fmt.Println("Error: bottomKey must be smaller than topKey.")
 		return
 	}
 
-	firstNode, _, _ := dsgRangeSearch(startNode, bottomKey, topKey, level)
+	firstNode, _, _ := dsgSearchStartEnd(startNode, bottomKey, topKey, level)
 	v := firstNode
 
 	var pathLength []int
@@ -339,14 +325,15 @@ func sequential(startNode *Node, bottomKey, topKey, level int) (targetNodes []*N
 	return
 }
 
-// sequential from both side of nodes of the range
-func sequential2(startNode *Node, bottomKey, topKey, level int) (targetNodes []*Node, avePathLength float64) {
+// Sequential2 is a sequential range search function from both end of nodes of the range
+// return the nodes list which contains all nodes of the range and average path length from start node
+func Sequential2(startNode *Node, bottomKey, topKey, level int) (targetNodes []*Node, avePathLength float64) {
 	if bottomKey > topKey {
 		fmt.Println("Error: bottomKey must be smaller than topKey.")
 		return
 	}
 
-	firstNode, lastNode, _ := dsgRangeSearch(startNode, bottomKey, topKey, level)
+	firstNode, lastNode, _ := dsgSearchStartEnd(startNode, bottomKey, topKey, level)
 	f, l := firstNode, lastNode
 
 	var pathLength []int
@@ -368,110 +355,4 @@ func sequential2(startNode *Node, bottomKey, topKey, level int) (targetNodes []*
 
 	avePathLength = float64(totalPathLength) / float64(len(targetNodes))
 	return
-}
-
-func (n *Node) printNodeInfo() {
-	fmt.Printf("%+v\n", n)
-}
-
-func printNodesInfo(g []*Node) {
-	for i := range g {
-		fmt.Printf("%+v\n", g[i])
-	}
-}
-
-func (n *Node) printNodeKeyMV() {
-	fmt.Println(n.key)
-	fmt.Println(n.mv)
-}
-
-func printNodesKeyMV(g []*Node) {
-	for i := range g {
-		fmt.Println(g[i].key)
-		fmt.Println(g[i].mv)
-	}
-}
-
-func swap(a, b int) (int, int) {
-	return b, a
-}
-
-func testForSearch(g []*Node, searchFunc func(*Node, int, int, bool) (*Node, int)) float64 {
-	sum := 0
-	for i := 0; i < iter1; i++ {
-		for j := 0; j < iter2; j++ {
-			randNode := g[rand.Intn(nodeNum)]
-			randKey := g[rand.Intn(nodeNum)].key
-			_, path := searchFunc(randNode, randKey, randNode.maxLevel-1, false)
-			sum += path
-		}
-	}
-	var sumf, iter1f, iter2f float64 = float64(sum), float64(iter1), float64(iter2)
-	return sumf / (iter1f * iter2f)
-}
-
-func testForRangeSearch(g []*Node, searchFunc func(*Node, int, int, int) (*Node, *Node, float64)) float64 {
-	var sum float64 = 0
-	e := 0
-	for i := 0; i < iter1; i++ {
-		for j := 0; j < iter2; j++ {
-			randNode := g[rand.Intn(nodeNum)]
-			randStartKey := g[rand.Intn(nodeNum)].key
-			randEndKey := g[rand.Intn(nodeNum)].key
-			if randStartKey > randEndKey {
-				randStartKey, randEndKey = swap(randStartKey, randEndKey)
-			}
-			_, _, path := searchFunc(randNode, randStartKey, randEndKey, randNode.maxLevel-1)
-			if path != 0 {
-				sum += path
-			} else {
-				e++
-			}
-		}
-	}
-	var iter1f, iter2f, ef float64 = float64(iter1), float64(iter2), float64(e)
-	return sum / (iter1f*iter2f - ef)
-}
-
-func testForSequential(g []*Node, searchFunc func(*Node, int, int, int) ([]*Node, float64)) float64 {
-	var sum float64 = 0
-	e := 0
-	for i := 0; i < iter1; i++ {
-		for j := 0; j < iter2; j++ {
-			randNode := g[rand.Intn(nodeNum)]
-			startIndex := rand.Intn(nodeNum - targetRange)
-			randStartKey := g[startIndex].key
-			randEndKey := g[startIndex+targetRange-1].key
-			_, path := searchFunc(randNode, randStartKey, randEndKey, randNode.maxLevel-1)
-			if path != 0 {
-				sum += path
-			} else {
-				e++
-			}
-		}
-	}
-	var iter1f, iter2f, ef float64 = float64(iter1), float64(iter2), float64(e)
-	return sum / (iter1f*iter2f - ef)
-}
-
-func main() {
-	graph := setGraph()
-	// printNodesInfo(graph)
-	// printNodesKeyMV(graph)
-
-	// test for simple search
-	ave := testForSearch(graph, search)
-	fmt.Println(ave)
-
-	// test for DSG search
-	ave = testForSearch(graph, dsgSearch)
-	fmt.Println(ave)
-
-	// sequential
-	ave = testForSequential(graph, sequential)
-	fmt.Println(ave)
-
-	// sequential2
-	ave = testForSequential(graph, sequential2)
-	fmt.Println(ave)
 }
