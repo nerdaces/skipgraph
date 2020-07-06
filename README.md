@@ -1,4 +1,6 @@
 # Skipgraph
+Repository for Skipgraph in Golang
+
 Skipgraph is one of the technologies of structured overay network.  
 It supports range queries unlike DHT (Distributed Hash Table).
 
