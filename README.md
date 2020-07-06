@@ -1,7 +1,6 @@
 # Skipgraph
 
-Skipgraph is one of the technologies of structured overay network.
-
+Skipgraph is one of the technologies of structured overay network.  
 It supports range queries unlike DHT (Distributed Hash Table).
 
 ## Topology
