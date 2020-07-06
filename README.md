@@ -12,7 +12,7 @@ Neighbors of each node at the level are decided by prefix of MV
 
 ↓ image example
 
-<img width="400" src="https://user-images.githubusercontent.com/65460975/86628262-9d51b000-c004-11ea-849f-503a80049963.png">
+<img width="550" src="https://user-images.githubusercontent.com/65460975/86628262-9d51b000-c004-11ea-849f-503a80049963.png">
 
 
 ## Details
