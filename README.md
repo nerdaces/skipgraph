@@ -1,5 +1,5 @@
 # Skipgraph
-Repository for Skipgraph in Golang
+Repository for Skipgraph in Golang.  
 ***This code needs refactoring***
 
 Skipgraph is one of the technologies of structured overay network.  
