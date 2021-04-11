@@ -1,5 +1,6 @@
 # Skipgraph
 Repository for Skipgraph in Golang
+***This code needs refactoring***
 
 Skipgraph is one of the technologies of structured overay network.  
 It supports range queries unlike DHT (Distributed Hash Table).
@@ -11,10 +12,6 @@ Each node has key and membership vector (MV)
 
 Nodes are always ordered and every nodes except for both ends has 2 neighbors at each level  
 Neighbors of each node at the level are decided by prefix of MV
-
-↓ image example
-
-<img width="550" src="https://user-images.githubusercontent.com/65460975/86628262-9d51b000-c004-11ea-849f-503a80049963.png">
 
 
 ## Details
